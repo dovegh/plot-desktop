@@ -1,11 +1,15 @@
-# Builds the Mac installers on a Mac (a .dmg can't be made on Windows), then tries the result:
-# mounts the Apple Silicon .dmg, checks its signature and starts the app.
+# Builds the Mac installers on a Mac (a .dmg can't be made on Windows), tries the result (mounts
+# the Apple Silicon .dmg, checks its signature and starts the app), then publishes them as the
+# GitHub Release the download page links to.
 name: Build Mac
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   mac:
@@ -35,7 +39,8 @@ jobs:
             sleep 2
           done
           kill $pid || true
-          cat app.log | tail -15
+          sleep 3
+          tail -15 app.log
           test "$ok" = 1
           hdiutil detach /tmp/plot -force || true
       - uses: actions/upload-artifact@v4
@@ -44,3 +49,13 @@ jobs:
           path: release/*.dmg
           compression-level: 0
           retention-days: 30
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v$(node -p "require('./package.json').version")"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            gh release upload "$tag" release/*.dmg --clobber
+          else
+            gh release create "$tag" release/*.dmg --title "Plot $tag for Mac" --notes "Plot for Mac. Apple Silicon: the arm64 file. Intel: the x64 file."
+          fi
