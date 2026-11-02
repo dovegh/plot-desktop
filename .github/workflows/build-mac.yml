@@ -1,0 +1,46 @@
+# Builds the Mac installers on a Mac (a .dmg can't be made on Windows), then tries the result:
+# mounts the Apple Silicon .dmg, checks its signature and starts the app.
+name: Build Mac
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  mac:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run dist:mac
+      - name: Try the Apple Silicon build
+        run: |
+          ls -la release
+          dmg=$(ls release/*arm64.dmg)
+          hdiutil attach "$dmg" -nobrowse -mountpoint /tmp/plot
+          ls /tmp/plot
+          codesign --verify --deep --verbose=2 /tmp/plot/Plot.app
+          codesign -dv /tmp/plot/Plot.app 2>&1 | grep -E "Signature|Identifier"
+          /tmp/plot/Plot.app/Contents/MacOS/Plot > app.log 2>&1 &
+          pid=$!
+          ok=0
+          for i in $(seq 1 45); do
+            if curl -sf -m 2 http://127.0.0.1:7331/health; then ok=1; break; fi
+            sleep 2
+          done
+          kill $pid || true
+          cat app.log | tail -15
+          test "$ok" = 1
+          hdiutil detach /tmp/plot -force || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plot-mac
+          path: release/*.dmg
+          compression-level: 0
+          retention-days: 30

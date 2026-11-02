@@ -1,0 +1,75 @@
+{
+  "name": "plot-desktop",
+  "productName": "Plot",
+  "version": "1.0.0",
+  "description": "Plot for your desktop, with a built-in MCP server for Claude and other AI assistants.",
+  "author": "Rehema Solutions",
+  "main": "main.cjs",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis --x64",
+    "dist:mac": "electron-builder --mac --publish never"
+  },
+  "devDependencies": {
+    "electron": "^38.2.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "app.useplot.desktop",
+    "productName": "Plot",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "mcp-server.cjs",
+      "offline.html",
+      "build/icon.png"
+    ],
+    "extraResources": [
+      {
+        "from": "mcp-stdio.cjs",
+        "to": "mcp-stdio.cjs"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Plot",
+      "artifactName": "Plot-Setup-${version}.exe"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.graphics-design",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Plot uses the microphone to record voice notes on comments."
+      }
+    },
+    "dmg": {
+      "artifactName": "Plot-${version}-${arch}.dmg",
+      "title": "Plot"
+    }
+  }
+}
