@@ -2,6 +2,42 @@
 // Tools run inside the open Plot window through window.__plotAgent.
 
 const http = require('http');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+const IMAGE_TYPES = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.svg': 'image/svg+xml' };
+const MAX_IMAGE = 40 * 1024 * 1024;
+
+/** add_image with a file path or a web address: read it here (the page can't read files, and
+ *  many sites block downloads from a page), and hand the page the bytes. */
+async function resolveImage(args) {
+  if (!args || args.data) return args;
+  if (args.path) {
+    let p = String(args.path).trim().replace(/^file:\/\//i, '');
+    if (p.startsWith('~')) p = path.join(os.homedir(), p.slice(1));
+    p = path.resolve(p);
+    const ext = path.extname(p).toLowerCase();
+    if (!IMAGE_TYPES[ext]) throw new Error(`Not an image file Plot can place (PNG, JPEG, WebP, GIF or SVG): ${p}`);
+    let st;
+    try { st = fs.statSync(p); } catch { throw new Error(`No file at ${p}`); }
+    if (!st.isFile()) throw new Error(`Not a file: ${p}`);
+    if (st.size > MAX_IMAGE) throw new Error(`The image is too big (${Math.round(st.size / 1048576)} MB; the limit is 40 MB).`);
+    const { path: _p, ...rest } = args;
+    return { ...rest, data: fs.readFileSync(p).toString('base64'), mime: args.mime || IMAGE_TYPES[ext], name: args.name || path.basename(p, ext) };
+  }
+  if (args.url && /^https?:\/\//i.test(String(args.url))) {
+    const res = await fetch(String(args.url), { redirect: 'follow' }).catch(() => null);
+    if (!res || !res.ok) throw new Error(`Couldn't download the image from ${args.url}`);
+    const type = (res.headers.get('content-type') || '').split(';')[0];
+    if (!type.startsWith('image/')) throw new Error(`That address isn't an image (it's ${type || 'unknown'}).`);
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length > MAX_IMAGE) throw new Error('The image is too big (the limit is 40 MB).');
+    const { url, ...rest } = args;
+    return { ...rest, data: buf.toString('base64'), mime: args.mime || type, name: args.name || String(url).split(/[?#]/)[0].split('/').pop() };
+  }
+  return args;
+}
 
 const PROTOCOL = '2025-06-18';
 
@@ -21,6 +57,7 @@ function createMcpServer({ port, getWindow, version }) {
   async function callTool(name, args) {
     const ready = await inPage('!!window.__plotAgent');
     if (!ready) throw new Error('Plot is still loading. Try again in a moment.');
+    if (name === 'add_image') args = await resolveImage(args);
     const code = `window.__plotAgent.call(${JSON.stringify(String(name))}, ${JSON.stringify(args ?? {})}).then(r => ({ ok: true, r }), e => ({ ok: false, e: String(e && e.message || e) }))`;
     const res = await inPage(code);
     if (!res.ok) return { content: [{ type: 'text', text: res.e }], isError: true };
