@@ -19,7 +19,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run dist
+      - run: npx electron-builder --win nsis --x64 --publish never
       - name: Check the installer
         shell: bash
         run: ls -la release/*.exe
