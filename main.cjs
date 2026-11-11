@@ -212,6 +212,15 @@ async function start() {
       if (win && !win.isDestroyed()) win.webContents.send('plot:downloaded', { name: path.basename(file), ok: state === 'completed' });
     });
   });
+  // Settings like the theme live in the page's storage, which Electron writes to disk lazily:
+  // write it out before the window goes, so nothing changed just before quitting is lost.
+  win.on('close', () => {
+    try {
+      win.webContents.session.flushStorageData();
+    } catch {
+      /* already gone */
+    }
+  });
   win.on('closed', () => (win = null));
 
   ipcMain.handle('plot:connect-claude', () => connectClaude());
@@ -233,4 +242,11 @@ async function start() {
   }
 }
 
+app.on('before-quit', () => {
+  try {
+    require('electron').session.defaultSession.flushStorageData();
+  } catch {
+    /* nothing to write */
+  }
+});
 app.on('window-all-closed', () => app.quit());
