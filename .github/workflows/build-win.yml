@@ -1,0 +1,42 @@
+# Builds the Windows installer on Windows (run by hand), then adds it to the version's GitHub
+# Release next to the Mac installers. The download page serves a copy at /download/Plot-Setup.exe.
+name: Build Windows
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  win:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run dist
+      - name: Check the installer
+        shell: bash
+        run: ls -la release/*.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plot-win
+          path: release/*.exe
+          compression-level: 0
+          retention-days: 30
+      - name: Add it to the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v$(node -p "require('./package.json').version")"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            gh release upload "$tag" release/*.exe --clobber
+          else
+            gh release create "$tag" release/*.exe --title "Plot $tag" --notes "Plot for Windows and Mac."
+          fi
