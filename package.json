@@ -1,7 +1,7 @@
 {
   "name": "plot-desktop",
   "productName": "Plot",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Plot for your desktop, with a built-in MCP server for Claude and other AI assistants.",
   "author": "Rehema Solutions",
   "main": "main.cjs",
