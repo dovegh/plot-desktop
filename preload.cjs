@@ -4,7 +4,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('plotDesktop', {
   isDesktop: true,
   mcpPort: 7331,
-  version: '1.0.5',
+  version: '1.0.6',
   connectClaude: () => ipcRenderer.invoke('plot:connect-claude'),
   info: () => ipcRenderer.invoke('plot:info'),
   retry: () => ipcRenderer.invoke('plot:retry'),
